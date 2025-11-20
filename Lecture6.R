@@ -4,7 +4,7 @@
 # Based on lecture series "Data analysis using R" by Prof. Danny Arends
 # ==========================================
 
-setwd("C:\\R_Tutorial")  # Set working directory
+setwd("C:\\Data_Analysis_With_R")  # Set working directory
 
 # Project Planning
 # ==========================================
