@@ -5,6 +5,14 @@
 
 setwd("C:\\Data_Analysis_With_R")  # Set working directory
 
+# General Linear Models (GLMs):
+#
+# Main Assumption: all observations are independent. Examples:
+# Linear Regression
+# ANOVA
+# Analysis of Covariance
+# Multiple Linear Regression
+
 # Regression
 # ==========================================
 
@@ -281,7 +289,7 @@ curve(292.95885 + -9.22680 * x + 0.07602 * x^2, add = T, col = "red")
 # AIC is not a statistical test, but a guideline
 # more parameters, more model is penalized  
 # lower AIC better model
-# difference in AIC ΔAIC should be atleast 10 AIC points 
+# difference in AIC ΔAIC should be at least 10 AIC points 
 ?AIC
 
 lm1 <- lm(Ozone ~ Temp, airquality.clean)
