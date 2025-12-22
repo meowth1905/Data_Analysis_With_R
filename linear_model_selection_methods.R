@@ -234,6 +234,10 @@ mean.cv.errors
 plot(mean.cv.errors ,type='b')
 which.min(mean.cv.errors)
 
+# After using validation or cross-validation to choose the optimal model size,
+# refit the model on the full dataset using that size, and
+# those variables and their coefficient estimates are the final chosen model.
+
 # so model with 10 variables has the lowest cross validation error
 # perform best subset selection on the full data set
 # in order to obtain the 10-variable model.
@@ -305,3 +309,205 @@ barplot(table(best.size.cv),
 
 # to do all this with forward or backwars stepwise selection
 # use method = "forward" pr "backward" in regsubsets()
+
+# Ridge Regularization
+# ---------------------
+
+# install.packages("glmnet")
+library(glmnet)
+
+# We need feature matrix x and response vector y
+model.matrix(Salary~., Hitters)
+# drop first column with variable names
+x <- model.matrix(Salary~., Hitters)[, -1]
+y <- Hitters$Salary
+
+?glmnet
+# alpha = 0 ridge regression
+# alpha = 1 lasso
+lambda_vals <- 10 ^ seq(10, -2, length=100)
+ridge.model <- glmnet(x, y, alpha = 0, lambda = lambda_vals)
+
+# by default glmnet standardizes the variables, so they are on same scale
+# to turn this off set standardize=FALSE
+
+# in ridge and lasso for each lambda we get a different coef estimates
+# and we have p + 1(intercept) coef estimates that is 19 predictors + 1 = 20
+# so we get 20 x 100 coef matrix
+dim(coef(ridge.model))
+
+lambda_vals[50] > lambda_vals[60]
+# 11497.57 > 705.4802
+
+# we can see coef estimates when lambda = 11497.57 is much smaller than 
+# when lambda = 705.4802
+coef(ridge.model)[, 50]
+coef(ridge.model)[, 60]
+
+# predict()
+# can obtain the ridge regression coefficients for a new value of lambda
+# for example 50
+predict(ridge.model, s=50, type="coefficients")[1:20, ]
+
+# Estimate the test error of ridge regression
+# first split observations into train and test
+# 2 ways to do the split
+# first way is what we done before 
+# produce a random vector of TRUE, FALSE elements and select the observations corresponding to TRUE for the training data
+# and test will be !train
+# second way is 
+
+nrow(x)
+nrow(Hitters)
+# sample(x, size, replace = FALSE)
+# randomly select half of observations of x without replacement
+set.seed(1)
+train <- sample(1:nrow(x), nrow(x)/2)
+test <- setdiff(1:nrow(x), train)
+
+# fit ridge regression model on train set
+ridge.model <- glmnet(x[train, ], y[train], alpha = 0, 
+                      lambda = lambda_vals,
+                      thresh = 1e-12)
+
+# thresh means
+# algorithm keeps iterating until coefficient changes are smaller than 10 ^ −12
+# default is 10 ^ −7
+
+# evaluate test MSE using lambda = 4
+# get predictions for test set 
+ridge.pred <- predict(ridge.model, s=4, newx=x[test, ])
+mean((ridge.pred - y[test]) ^ 2)
+
+# if we used a model with just intercept then 
+# predicted y = mean of y in train set
+mean((mean(y[train]) - y[test]) ^ 2)
+
+# if we sued ridge regression with a very large lambda
+# we get ~ same MSE 
+# because a very large lambda == a null model (as most coef will be ~ 0)
+test.pred <- predict(ridge.model, s=1e10, newx=x[test, ])
+mean((test.pred - y[test]) ^ 2)
+
+# So fitting a ridge regression model with λ = 4 leads to a much lower test
+# MSE than fitting a model with just an intercept.
+
+# now we check is performing ridge regression is better than
+# just using least square regression
+# lambda = 0 means no regression = least square regression
+test.pred <- predict(ridge.model, s=0, newx=x[test, ])
+mean((test.pred - y[test]) ^ 2)
+# MSE is higher than when ridge regression (lambda = 4) 
+
+# choose best lambda using CV
+set.seed(1)
+cv.lambdas <- cv.glmnet (x[train ,],y[train],alpha =0)
+plot(cv.lambdas)
+names(cv.lambdas)
+# lambda that results in the smallest cross-validation error is
+cv.lambdas$lambda.min
+best_lambda <- cv.lambdas$lambda.min
+
+ridge.pred <- predict(ridge.model, s=best_lambda, newx=x[test, ])
+mean((ridge.pred - y[test]) ^ 2)
+# test MSE is improved when using lambda chosen by CV 
+
+# refit ridge regression model on the full data set. 
+ridge.full <- glmnet(x, y, alpha = 0)
+# examine the coef estimates
+predict(ridge.full, type="coefficients",s=best_lambda )[1:20 ,]
+
+# none of the coef are 0, so no variable selection
+# ridge regression uses all p predictors
+
+# The Lasso Regularization
+# ------------------------ 
+lasso.model <- glmnet(x[train, ], y[train], alpha=1, lambda=lambda_vals)
+plot(lasso.model)
+
+# perform cross-validation and compute the associated test error
+set.seed (1)
+cv.out <- cv.glmnet(x[train, ], y[train], alpha=1)
+best_lam <- cv.out$lambda.min
+lasso.pred <- predict(lasso.model, s=best_lam, newx=x[test ,])
+mean((lasso.pred - y.test) ^ 2)
+
+lasso.full <- glmnet(x, y, alpha = 1)
+predict(lasso.full, type="coefficients",s=best_lam)[1:20, ]
+
+# here some variables coef estimates == 0
+# so variable selection can be done
+
+# Principal Components Regression
+# -------------------------------
+# install.packages("pls")
+library(pls)
+
+set.seed(2)
+pcr.model <- pcr(Salary~., data=Hitters, scale=TRUE, validation="CV")
+# validation="CV" 
+# compute the ten-fold cross-validation error for each possible value of M
+# M number of principal components used
+summary(pcr.model)
+# gives CV score which is RMSE for each value of M from 0 to p
+# also percentage of variance
+# amount of information about the predictors or the response
+# that is captured using M PCs
+
+# setting M = 1 captures only
+# 40.63% of variance or information in response and
+# 38.31% variance in predictors 
+
+# setting M = 7 captures 
+# 46.69% of variance or information in response and
+# 92.26% variance in predictors 
+
+# Using all PCs we capture 100% variance in predictors but still only
+# 54.61 % of response variable.
+
+validationplot(pcr.model, val.type = "MSEP")
+
+# perform PCR on the training data and
+# evaluate its test set performance
+
+set.seed(1)
+pcr.model <- pcr(Salary~., data=Hitters, subset=train, scale=TRUE,
+                 validation="CV")
+validationplot(pcr.model, val.type = "MSEP")
+
+# we can extract MSEP values using
+msep_vals <- MSEP(pcr.model)$val[1,,]
+which.min(msep_vals)
+
+# so lowest cross-validation error occurs when M = 5 
+# do prediction on test data with 5 PCs
+pcr.pred <- predict(pcr.model, x[test, ], ncomp = 5)
+# test MSE
+mean((pcr.pred - y[test]) ^ 2)
+
+
+# fit PCR on the full data 
+pcr.model <- pcr(y~x, scale=TRUE, ncomp=5)
+summary(pcr.model)
+
+# Partial Least Squares
+# ----------------------
+
+set.seed (1)
+pls.model <- plsr(Salary~., data=Hitters, subset=train, scale=TRUE,
+                 validation="CV")
+summary(pls.model)
+
+validationplot(pls.model, val.type = "MSEP")
+msep_vals <- MSEP(pls.model)$val[1,,]
+which.min(msep_vals)
+# when M = 1
+
+pls.pred <- predict(pls.model, x[test, ], ncomp = 1)
+mean((pls.pred - y[test]) ^ 2)
+
+# fit PCR on the full data 
+pls.model <- plsr(Salary~., data=Hitters, scale=TRUE, ncomp=1)
+summary(pls.model)
+# so 1 component pls model explains 43% of variance in Salary
+# pcr explained 44%
