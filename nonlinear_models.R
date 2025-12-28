@@ -6,6 +6,11 @@ data(Wage)
 attach(Wage)
 
 View(Wage)
+# no missing values in any column 
+any(is.na(Wage))
+# no NA in wage column
+any(is.na(wage))
+
 hist(wage, breaks = 100)
 
 nrow(Wage)
@@ -281,3 +286,65 @@ legend ("topright", legend=c("Span=0.2", "Span =0.5", "Span =0.8") ,
 # Large span → curve is smoother, less sensitive to small fluctuations.
 
 # GAMs
+# is like doing local regression / splines for multiple predictors at once, and then adding their effects together.
+# predict wage using age year and education
+
+# ns: natural spline. It expands one predictor into multiple smooth basis functions.
+# breaks one variable into several smooth pieces so the regression can bend where needed but stay well-behaved at the edges.
+# ns(age, 5) replaces age column with 5 new columns
+# age -> b1(age), b2(age), b3(age), b4(age), b5(age)
+# education is qualitative, so leave it as is
+unique(education)
+
+gam1 <- lm(wage ~ ns(year, 4) + ns(age, 5) + education, data = Wage)
+summary(gam1)
+
+par(mfrow=c(1,3))
+plot.Gam(gam1, se=TRUE, col="blue")
+
+# gam()
+# when you want the model to automatically decide how smooth a predictor’s effect should be (penalized smoothing).
+library(gam)
+# ns(age, 5) means exactly 5 degrees of freedom
+# s(age, 5) means dof up to 5, chosen automatically
+gam2 <- gam(wage ~ s(year, 4) + s(age, 5) + education, data = Wage)
+
+par(mfrow=c(1,3))
+plot(gam2, se=TRUE, col="blue")
+
+# holding age and education fixed, wage increases with year, may be due to inflation
+# holding year and education fixed, wage is lowest for the very young and very old
+# and highest for the middle aged people
+# holding age and year fixed, wage increases with education.
+# the more educated a person is, the higher their salary, on average
+
+# gam1 and gam2 results are almost the same
+# In most situations, the differences in the GAMs obtained using smoothing splines
+# versus natural splines are small.
+
+
+# compare multiple gams
+M1 <- gam(wage ~ s(age, 5) + education, data = Wage)
+M2 <- gam(wage ~ year + s(age, 5) + education, data = Wage)
+M3 <- gam(wage ~ s(year, 4) + s(age, 5) + education, data = Wage)
+
+anova(M1, M2, M3)
+# M2 is better than other 2 models
+# so model with year (linear function of year) is better than a model without
+# year and model with s(year, 4) (non linear function of year)
+
+summary(M3)
+# coef estimate for s(year, 4) is not significant (p value is 0.3537)
+
+summary(M2)
+# while that of year is significant (p value 2.89e-06)
+
+# above we use linear function, ns() and s() as building blocks 
+# can also use local regression
+gam.lo <- gam(wage ~ year + lo(age, span = 0.7) + education, data = Wage)
+plot(gam.lo, se=TRUE, col="blue")
+
+# can add interaction terms
+# lo(age, year, span = 0.5) is the interaction between age and year
+gam.lo.i <- gam(wage ~ lo(year, age, span = 0.5) + education, data = Wage)
+summary(gam.lo.i)
