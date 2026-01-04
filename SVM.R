@@ -2,7 +2,7 @@ setwd("C:\\Neethu\\Introduction to statistical learning with applications in R")
 
 library(ISLR)
 library(e1071)
-library(ROCR)
+library(pROC)
 
 # Support Vector Classifier
 # -------------------------
@@ -123,7 +123,7 @@ plot(svmfit, dat)
 
 # Support Vector Machine
 # ----------------------
-# which user kernel to expand feature space
+# which uses kernel to expand feature space
 set.seed (1)
 x <- matrix(rnorm(200*2), ncol =2)
 x[1:100 ,] <- x[1:100, ] + 2
@@ -168,4 +168,46 @@ table(predict = predict(tune.out$best.model, newdata = dat[-train, ]),
       truth = dat[-train, "y"])
 
 # 12% misclassification
+
+
+# SVM with multiple classes
+# --------------------------
+# Khan dataset
+# tissue samples from 4 distinct types of small round blue cell tumors
+names(Khan)
+
+# n=63, p=2308
+dim(Khan$xtrain)
+length(Khan$ytrain)
+
+# n=20, p=2308
+dim(Khan$xtest)
+length(Khan$ytest)
+
+unique(Khan$ytrain)
+table(Khan$ytrain)
+
+unique(Khan$ytest)
+table(Khan$ytest)
+
+# predict cancer type (1, 2, 3 or 4) using gene expression patterns
+# p >>> n
+# means in SVM this means classes are easily separable
+
+dat <- data.frame(x=Khan$xtrain, y=factor(Khan$ytrain))
+train.fit <- svm(y ~ ., data = dat, kernel = "linear", cost = 10)
+
+summary(train.fit)
+names(train.fit)
+
+table(train.fit$fitted, dat$y)
+# no training errors
+# p >>> n means in SVM this means classes are easily separable
+
+dat.test <- data.frame(x=Khan$xtest, y=factor(Khan$ytest))
+pred <- predict(train.fit, newdata = dat.test)
+table(pred, dat.test$y)
+# 2 test error
+
+
 
